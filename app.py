@@ -1,7 +1,4 @@
-import requests
 import argparse
-import re
-import urllib3
 import mechanize
 from bs4 import BeautifulSoup
 
